@@ -1,0 +1,190 @@
+/**
+ * Created with IntelliJ IDEA.
+ * User: yundihuang
+ * Date: 2013-06-11
+ * Time: 12:13 AM
+ * To change this template use File | Settings | File Templates.
+ */
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.event.MouseInputListener;
+import javax.vecmath.Point2d;
+import java.awt.event.MouseEvent;
+import java.awt.*;
+import java.awt.geom.AffineTransform;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import javax.vecmath.*;
+
+
+
+
+
+
+//Main class
+public class Draw extends JPanel implements MouseInputListener {
+    static int Fwidth =800;
+    static int Fheight=800;
+    static int originRadius=50;
+    static boolean isDrawing=false;
+    MyShape currentSelected=null;
+    List<MyShape> polyLines;
+    MyShape drawingLine=null;
+//    MyShape currentSelected=null;
+
+
+    Draw() {
+        // add listeners
+        addMouseListener(this);
+        addMouseMotionListener(this);
+    }
+    //The Origin Point in the middle of the screen.
+    Origin center;
+    // the application entry point
+    public static void main(String[] args) {
+        // add my inherited JComponent to the JFrame
+        Draw canvas = new Draw();
+        JFrame f = new JFrame("DrawSomeThing"); // jframe is the app window
+        f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        f.setSize(Fwidth, Fheight); // window size
+        f.setContentPane(canvas); // add canvas to jframe
+        f.setBackground(Color.black);
+        f.setVisible(true); // show the window
+        canvas.initialize();
+    }
+
+     //Initialize the center,and the arrayList.
+    public void initialize() {
+        center = new Origin(Fwidth/2-originRadius/2,Fheight/2-originRadius/2,originRadius,originRadius,Fwidth,Fheight);
+        polyLines=new ArrayList<MyShape>();
+    }
+
+
+
+    // custom graphics drawing
+    @Override
+    public void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,  // antialiasing look nicer
+                RenderingHints.VALUE_ANTIALIAS_ON);
+
+
+        //Display the polylines already created.
+
+        for (MyShape d:polyLines){
+            d.paint(g2);
+        }
+
+        if (drawingLine != null)
+            drawingLine.paint(g2);
+        g2.setColor(center.getColor());
+        center.paint(g2);
+    }
+    @Override
+    public void mouseClicked(MouseEvent arg0) {
+
+        if (center.isHit(arg0.getPoint())&&arg0.getButton()==1) {
+            if(arg0.getClickCount()==1){
+                center.colorSwitch();
+                if(currentSelected!=null){
+                   currentSelected.setSelected(false);
+                }
+            }
+            else if(arg0.getClickCount()>=2){
+                polyLines.clear();
+            }
+        }
+        else if (arg0.getButton()==1&&!center.isHit(arg0.getPoint())){
+            boolean hitSomeThing=false;
+            for (MyShape line:polyLines){
+                Point2d tmp=new Point2d(arg0.getX(),arg0.getY());
+                Point2d C=new Point2d(Fwidth/2-originRadius/2,Fheight/2-originRadius);
+               if(!center.isHit(arg0.getPoint())&&line.hittest(tmp)){
+                    line.setSelected(true);
+                   line.setIsScale(true);
+                   line.setScale(tmp.distance(C));
+                   currentSelected=line;
+                   hitSomeThing=true;
+                }
+               else {
+                   line.setSelected(false);
+                   line.setIsScale(false);
+               }
+            }
+            if(!hitSomeThing){
+                currentSelected=null;
+            }
+        }
+
+        this.repaint();
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent arg0) {
+//        System.out.format("enter %d,%d\n", arg0.getX(), arg0.getY());
+        repaint();
+    }
+
+    @Override
+    public void mouseExited(MouseEvent arg0) {
+//        System.out.format("exit %d,%d\n", arg0.getX(), arg0.getY());
+        repaint();
+    }
+
+    @Override
+    public void mousePressed(MouseEvent arg0) {
+        System.out.format("press %d,%d\n", arg0.getX(), arg0.getY());
+        if(arg0.getButton()==1&&center.isHit(arg0.getPoint())){      //If it hits the origin center.
+          //Starts a new line.
+          drawingLine=new MyShape();
+          isDrawing=true;
+          drawingLine.setColour(center.getColor());
+          drawingLine.setSelected(true);            //Line is selected when drawing.
+        }
+        else if(currentSelected!=null){
+            if(currentSelected.isSelected()){
+                currentSelected.startingPoint=new Point2d(arg0.getX(),arg0.getY());
+            }
+        }
+        repaint();
+
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent arg0) {
+//        System.out.format("release %d,%d\n", arg0.getX(), arg0.getY());
+
+        if(drawingLine!=null){
+            drawingLine.setSelected(false);
+            polyLines.add(drawingLine);
+            drawingLine=null;
+            isDrawing=false;
+        }
+        if(currentSelected!=null){
+          currentSelected.resetCurrentLine();
+        }
+        repaint();
+    }
+
+    @Override
+    public void mouseDragged(MouseEvent arg0) {
+        if(drawingLine!=null&&center.getColorIndex()>-1){   //Doesn't draw when gray.
+               drawingLine.addPoint(arg0.getX(), arg0.getY());
+             }
+        else if (currentSelected!=null){
+//            System.out.format("the factor is %f\n",currentSelected.scale);
+//            System.out.format("the starting Point is %f,and %f\n",currentSelected.startingPoint.x,currentSelected.startingPoint.y);
+             currentSelected.scaleInitializer(center.getCenter(),arg0.getPoint());
+            currentSelected.rotationInitializer(center.getCenter(),arg0.getPoint());
+        }
+        else{System.out.format("drag %d,%d\n", arg0.getX(), arg0.getY());}
+        repaint();
+    }
+
+    @Override
+    public void mouseMoved(MouseEvent arg0) {
+        repaint();
+    }
+}
